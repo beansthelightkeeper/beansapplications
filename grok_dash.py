@@ -9,19 +9,22 @@ import base64
 import io
 import pyperclip
 import colorsys
+import random
 
 # --- Constants and Data ---
 WORDS = [
     "Beans", "Dream", "Spiral", "Love", "Heart", "Soul", "Trust", "Hope",
     "Spirit", "Light", "Truth", "Energy", "Infinity", "Divine", "Spiralborn",
-    "Children of the Beans"
+    "Children of the Beans", "lit", "fam", "dope", "vibe", "chill", "slay"
 ]
+AAVE_WORDS = ["lit", "fam", "dope", "vibe", "chill", "slay", "bet", "fire", "squad", "real"]
 LAYER_COLORS = {
     "Simple": "cyan", "Jewish Gematria": "yellow", "Qwerty": "lime",
     "Left-Hand Qwerty": "purple", "Right-Hand Qwerty": "pink",
     "Binary Sum": "lightgray", "Love Resonance": "red",
     "Frequent Letters": "orange", "Leet Code": "magenta", "Simple Forms": "teal",
-    "Prime Gematria": "gold"
+    "Prime Gematria": "gold", "Aave Simple": "blue", "Aave Reduced": "green",
+    "Aave Spiral": "purple", "Grok Resonance Score": "gold"
 }
 NAMED_COLORS_MAP = {
     'red': '#FF0000', 'orange': '#FFA500', 'yellow': '#FFFF00', 'green': '#008000',
@@ -37,10 +40,21 @@ THEMES = {
               'input_bg': '#fff', 'input_text': 'black', 'input_border': '1px solid #aaa',
               'graph_bg': '#fff', 'text_color': 'black'}
 }
-GOLDEN_ANGLE = 137.5  # Spiralborn love pattern
+GOLDEN_ANGLE = 137.5
 PASTEL_COLORS = ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF']
 PRIME_GLOW = "gold"
 FADE_OPACITY = 0.15
+SENTENCE_TEMPLATES = [
+    "{word1} is {word2}, yo!",
+    "Keep it {word1}, fam, that’s the {word2} vibe.",
+    "Yo, {word1} and {word2} got that {word3} energy!",
+    "Stay {word1}, it’s all about that {word2} life."
+]
+FEEDBACK_SCORES = {}
+COLOR_FAMILIES = {
+    'Red': (0, 30), 'Orange': (30, 60), 'Yellow': (60, 90), 'Green': (90, 150),
+    'Blue': (150, 210), 'Purple': (210, 270), 'Pink': (270, 330)
+}
 
 # --- Gematria Functions ---
 def simple(word):
@@ -57,12 +71,12 @@ QWERTY_MAP = {c: i + 1 for i, c in enumerate(QWERTY_ORDER)}
 def qwerty(word):
     return sum(QWERTY_MAP.get(c, 0) for c in word.upper())
 
-LEFT_HAND_KEYS = set('QWERTYASDFGZXCVB')
-RIGHT_HAND_KEYS = set('YUIOPHJKLNM')
 def left_hand_qwerty(word):
+    LEFT_HAND_KEYS = set('QWERTYASDFGZXCVB')
     return sum(QWERTY_MAP.get(c, 0) for c in word.upper() if c in LEFT_HAND_KEYS)
 
 def right_hand_qwerty(word):
+    RIGHT_HAND_KEYS = set('YUIOPHJKLNM')
     return sum(QWERTY_MAP.get(c, 0) for c in word.upper() if c in RIGHT_HAND_KEYS)
 
 def binary_sum(word):
@@ -107,6 +121,31 @@ def prime_gematria(word):
 def ambidextrous_balance(word):
     return -left_hand_qwerty(word) + right_hand_qwerty(word)
 
+def aave_simple(word):
+    return sum(ord(c) - 64 for c in word.upper() if c.isalpha())
+
+def aave_reduced(word):
+    val = aave_simple(word)
+    while val > 9 and val not in [11, 22]:
+        val = sum(int(d) for d in str(val))
+    return val
+
+def aave_spiral(word):
+    total = 0
+    for i, c in enumerate(word.upper(), 1):
+        if c.isalpha():
+            val = ord(c) - 64
+            weight = math.cos(math.radians(GOLDEN_ANGLE * i))
+            total += val * weight
+    return round(abs(total) * 4, 2)
+
+def grok_resonance_score(word):
+    simple = aave_simple(word)
+    reduced = aave_reduced(word)
+    spiral = aave_spiral(word)
+    boost = 1.1 if word.lower() in AAVE_WORDS else 1.0
+    return round((simple + reduced + spiral) / 3 * boost, 2)
+
 def is_golden_resonance(val):
     return isinstance(val, (int, float)) and (abs(val - 137) <= 5 or abs(val - 137.5) <= 5)
 
@@ -115,12 +154,12 @@ CALC_FUNCS = {
     "Left-Hand Qwerty": left_hand_qwerty, "Right-Hand Qwerty": right_hand_qwerty,
     "Binary Sum": binary_sum, "Love Resonance": love_resonance,
     "Frequent Letters": frequent_letters, "Leet Code": leet_code,
-    "Simple Forms": simple_forms, "Prime Gematria": prime_gematria
+    "Simple Forms": simple_forms, "Prime Gematria": prime_gematria,
+    "Aave Simple": aave_simple, "Aave Reduced": aave_reduced,
+    "Aave Spiral": aave_spiral, "Grok Resonance Score": grok_resonance_score
 }
 
-# --- Color Detection for Words ---
 def get_word_color(word):
-    # Compute color based on shared resonances
     resonance_sum = 0
     resonance_count = 0
     for layer, val, group in GLOBAL_SHARED_RESONANCES:
@@ -129,12 +168,64 @@ def get_word_color(word):
         if word in group:
             resonance_sum += val
             resonance_count += 1
-    # Use average resonance value to determine hue, fixed saturation/lightness for vibrancy
     avg_resonance = resonance_sum / max(resonance_count, 1)
-    hue = (avg_resonance % 360) / 360.0  # Map to [0, 1] for HSL
-    rgb = colorsys.hls_to_rgb(hue, 0.5, 0.7)  # Saturation=0.5, Lightness=0.7
+    hue = (avg_resonance % 360) / 360.0
+    rgb = colorsys.hls_to_rgb(hue, 0.5, 0.7)
     r, g, b = [int(x * 255) for x in rgb]
-    return f'#{r:02x}{g:02x}{b:02x}'
+    return f'#{r:02x}{g:02x}{b:02x}', hue * 360
+
+def get_color_family(hue):
+    hue = hue % 360
+    for family, (start, end) in COLOR_FAMILIES.items():
+        if start <= hue < end or (family == 'Red' and hue >= 330):
+            return family
+    return 'Other'
+
+def generate_color_report(report_layers):
+    color_groups = {family: [] for family in COLOR_FAMILIES}
+    color_groups['Other'] = []
+    for word in GLOBAL_WORDS:
+        hex_color, hue = get_word_color(word)
+        family = get_color_family(hue)
+        color_groups[family].append(word)
+    
+    report = ["Spiralborn Color Family Resonance Report"]
+    for family, words in color_groups.items():
+        if not words:
+            continue
+        report.append(f"\nColor Family: {family}")
+        report.append(f"Words: {', '.join(sorted(words))}")
+        report.append("Shared Resonances:")
+        shared_found = False
+        for layer, val, group in sorted([r for r in GLOBAL_SHARED_RESONANCES if r[0] in report_layers], key=lambda x: (x[0], x[1])):
+            group_words = [w for w in group if w in words]
+            if len(group_words) > 1:
+                report.append(f"  {layer}: {val}: {', '.join(group_words)}")
+                shared_found = True
+        if not shared_found:
+            report.append("  No shared resonances")
+        for word in sorted(words):
+            report.append(f"\n  Word: {word}")
+            report.append(f"  Color: {get_word_color(word)[0]}")
+            report.append(f"  Golden Resonance (~137.5): {'Yes 🌀' if any(is_golden_resonance(CALC_FUNCS[l](word)) for l in report_layers) else 'No'}")
+            report.append("  Calculations:")
+            for layer in report_layers:
+                val = CALC_FUNCS[layer](word)
+                report.append(f"    {layer}: {val}{' 🌀' if is_golden_resonance(val) else ''}")
+            report.append("  Ambidextrous Balance:")
+            report.append(f"    Left-Hand Qwerty: {-left_hand_qwerty(word)}")
+            report.append(f"    Right-Hand Qwerty: {right_hand_qwerty(word)}")
+            report.append(f"    Balance: {ambidextrous_balance(word)}")
+    return "\n".join(report)
+
+def generate_sentence():
+    words = random.sample(GLOBAL_WORDS, 3)
+    template = random.choice(SENTENCE_TEMPLATES)
+    if "{word3}" in template:
+        sentence = template.format(word1=words[0], word2=words[1], word3=words[2])
+    else:
+        sentence = template.format(word1=words[0], word2=words[1])
+    return sentence
 
 # --- Global Data ---
 GLOBAL_WORDS = list(WORDS)
@@ -151,15 +242,11 @@ def initialize_graph_data(current_words, layout='spiral'):
     GLOBAL_WORDS = list(set(w.title() for w in current_words if re.match(r'^[A-Za-z\s]+$', w)))
     for w in GLOBAL_WORDS:
         GLOBAL_WORD_ORIGINS.setdefault(w, {'_MANUAL_'})
-
-    # Build resonance layers
     GLOBAL_LAYERS = {layer: {} for layer in CALC_FUNCS}
     for layer, func in CALC_FUNCS.items():
         for w in GLOBAL_WORDS:
             val = func(w)
             GLOBAL_LAYERS[layer].setdefault(val, []).append(w)
-
-    # Build graph and shared resonances
     GLOBAL_G = nx.Graph()
     GLOBAL_G.add_nodes_from(GLOBAL_WORDS)
     GLOBAL_EDGES_BY_LAYER = {}
@@ -172,8 +259,6 @@ def initialize_graph_data(current_words, layout='spiral'):
                 for i in range(len(group)):
                     for j in range(i + 1, len(group)):
                         GLOBAL_EDGES_BY_LAYER[layer].append((group[i], group[j], val))
-
-    # Layouts: Spiral, Circular, Sphere, Hexagonal Prism, Pyramid
     GLOBAL_POS = {}
     n_nodes = len(GLOBAL_G.nodes())
     if layout == 'spiral':
@@ -215,23 +300,22 @@ def initialize_graph_data(current_words, layout='spiral'):
         height = 10
         for i, node in enumerate(GLOBAL_G.nodes()):
             if i == 0:
-                GLOBAL_POS[node] = [0, 0, height]  # Apex
+                GLOBAL_POS[node] = [0, 0, height]
             else:
                 angle = 2 * np.pi * (i - 1) / (n_nodes - 1)
                 x = base_size * np.cos(angle)
                 y = base_size * np.sin(angle)
                 z = 0
                 GLOBAL_POS[node] = [x, y, z]
-
-    # Assign node colors based on resonances
-    GLOBAL_NODE_COLORS = {n: get_word_color(n) for n in GLOBAL_G.nodes()}
+    GLOBAL_NODE_COLORS = {n: get_word_color(n)[0] for n in GLOBAL_G.nodes()}
 
 initialize_graph_data(GLOBAL_WORDS)
 
-# --- Generate Individual Report ---
+# --- Generate Reports ---
 def generate_individual_report(word, report_layers):
     report = [f"Resonance for '{word}'"]
     report.append(f"Origin: {', '.join(GLOBAL_WORD_ORIGINS.get(word, {'Unknown'}))}")
+    report.append(f"Color: {get_word_color(word)[0]}")
     report.append(f"Golden Resonance (~137.5): {'Yes 🌀' if any(is_golden_resonance(CALC_FUNCS[l](word)) for l in report_layers) else 'No'}")
     report.append("Resonances:")
     shared_found = False
@@ -256,17 +340,15 @@ def generate_individual_report(word, report_layers):
         report.append(f"  {layer}: {val}: {', '.join(group)}")
     return "\n".join(report)
 
-# --- Generate Full Report ---
 def generate_full_report(report_layers, number_filter=None):
     report = ["Spiralborn Resonance Full Report"]
     words_to_report = sorted(GLOBAL_WORDS)
     if number_filter is not None:
         words_to_report = [w for w in words_to_report if any(CALC_FUNCS[l](w) == number_filter for l in report_layers)]
-
     for word in words_to_report:
         report.append(f"\nWord/Phrase: {word}")
         report.append(f"Origin: {', '.join(GLOBAL_WORD_ORIGINS.get(word, {'Unknown'}))}")
-        report.append(f"Color: {get_word_color(word)}")
+        report.append(f"Color: {get_word_color(word)[0]}")
         report.append(f"Golden Resonance (~137.5): {'Yes 🌀' if any(is_golden_resonance(CALC_FUNCS[l](word)) for l in report_layers) else 'No'}")
         report.append("Resonances:")
         shared_found = False
@@ -295,7 +377,6 @@ def generate_full_report(report_layers, number_filter=None):
 # --- Dash App ---
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 app.layout = html.Div(id='main-div', style={'display': 'flex', 'height': '100vh'}, children=[
-    # Sidebar
     html.Div(id='sidebar-div', style={'width': '300px', 'padding': '20px', 'backgroundColor': THEMES['dark']['sidebar_bg'], 'overflowY': 'auto'}, children=[
         html.H2("Spiralborn Resonance 🌀"),
         html.Hr(),
@@ -318,7 +399,7 @@ app.layout = html.Div(id='main-div', style={'display': 'flex', 'height': '100vh'
         dcc.Slider(id='text-size-slider', min=8, max=16, step=1, value=10, marks={8: '8px', 12: '12px', 16: '16px'}),
         html.Hr(),
         html.Label("Add Words/Phrases:"),
-        dcc.Textarea(id='new-words-input', placeholder='Enter words/phrases (e.g., Word1, Children of the Beans)', style={'width': '100%', 'height': '80px'}),
+        dcc.Textarea(id='new-words-input', placeholder='Enter words/phrases', style={'width': '100%', 'height': '80px'}),
         html.Button('Import', id='import-words-button', n_clicks=0),
         html.Div(id='import-status'),
         html.Hr(),
@@ -348,51 +429,62 @@ app.layout = html.Div(id='main-div', style={'display': 'flex', 'height': '100vh'
         html.Hr(),
         html.Label("Shared Resonances:"),
         html.Div(id='shared-resonances-list', style={'maxHeight': '15vh', 'overflowY': 'auto'}),
+        html.Button('Copy Matched Words', id='copy-matched-words-button', n_clicks=0),
         html.Hr(),
         html.Label("Matched Words/Phrases:"),
         html.Div(id='matched-words-list', style={'maxHeight': '15vh', 'overflowY': 'auto'}),
         html.Hr(),
+        html.Label("Generate Sentence:"),
+        html.Div(id='sentence-output', style={'marginTop': '10px', 'fontSize': '16px'}),
+        html.Button('Generate Sentence', id='gen-sentence-button', n_clicks=0),
+        html.Button('Copy All Words', id='copy-all-words-button', n_clicks=0, style={'marginLeft': '10px'}),
+        html.Button('👍 Thumbs Up', id='thumbs-up-button', n_clicks=0, style={'margin': '10px'}),
+        html.Button('👎 Thumbs Down', id='thumbs-down-button', n_clicks=0, style={'margin': '10px'}),
+        html.Div(id='feedback-status', style={'marginTop': '10px'}),
+        html.Hr(),
         html.Label("Reports:"),
         html.Button('Generate Report', id='generate-report-button', n_clicks=0),
+        html.Button('Generate Color Reports', id='generate-color-report-button', n_clicks=0),
         dcc.Download(id='download-report'),
         html.Hr(),
         html.Label("Export Words:"),
         html.Button('Export', id='export-words-button', n_clicks=0),
         dcc.Download(id='download-word-list'),
     ]),
-    # Graph and Modals
     html.Div(id='graph-container', style={'flexGrow': 1}, children=[
         dcc.Graph(id='resonance-graph', style={'height': '100vh'}),
         html.Div(id='node-report-modal', style={'display': 'none', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '400px', 'maxHeight': '40vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}, children=[
             html.Button('✕', id='modal-x-button', style={'position': 'absolute', 'top': '5px', 'right': '5px', 'background': 'none', 'border': 'none', 'color': 'gold', 'fontSize': '16px'}),
-            html.Button('Copy Report', id='copy-report-button', style={'position': 'absolute', 'top': '5px', 'left': '5px', 'background': 'none', 'border': '1px solid gold', 'color': 'gold'}),
+            html.Button('Copy Report', id='copy-report-button', n_clicks=0),
             html.H3(id='modal-title', style={'color': 'gold', 'marginTop': '30px'}),
             html.Div(id='modal-content', style={'color': 'white'}),
             html.Button('Close', id='modal-close-button', style={'marginTop': '10px'})
         ]),
         html.Div(id='full-report-modal', style={'display': 'none', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '600px', 'maxHeight': '60vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}, children=[
             html.Button('✕', id='full-report-x-button', style={'position': 'absolute', 'top': '5px', 'right': '5px', 'background': 'none', 'border': 'none', 'color': 'gold', 'fontSize': '16px'}),
-            html.Button('Copy Report', id='full-report-copy-button', style={'position': 'absolute', 'top': '5px', 'left': '5px', 'background': 'none', 'border': '1px solid gold', 'color': 'gold'}),
+            html.Button('Copy Report', id='full-report-copy-button', n_clicks=0),
             html.H3("Full Resonance Report", style={'color': 'gold', 'marginTop': '30px'}),
             html.Div(id='full-report-content', style={'color': 'white'}),
             html.Button('Close', id='full-report-close-button', style={'marginTop': '10px'})
+        ]),
+        html.Div(id='color-report-modal', style={'display': 'none', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '600px', 'maxHeight': '60vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}, children=[
+            html.Button('✕', id='color-report-x-button', style={'position': 'absolute', 'top': '5px', 'right': '5px', 'background': 'none', 'border': 'none', 'color': 'gold', 'fontSize': '16px'}),
+            html.Button('Copy Color Report', id='color-report-copy-button', n_clicks=0),
+            html.H3("Color Family Resonance Report", style={'color': 'gold', 'marginTop': '30px'}),
+            html.Div(id='color-report-content', style={'color': 'white'}),
+            html.Button('Close', id='color-report-close-button', style={'marginTop': '10px'})
         ])
     ])
 ])
 
-# --- Build Graph Figure ---
 def build_graph_figure(selected_layers, highlight_word=None, theme='dark', source_filter=None, number_filter=None, prime_filter=False, resonance_filter=None, word_phrase_filter='all', text_size=10):
     fig = go.Figure()
     theme_colors = THEMES[theme]
     nodes_to_draw = set(GLOBAL_G.nodes())
-
-    # Apply word/phrase filter
     if word_phrase_filter == 'words':
         nodes_to_draw = {n for n in nodes_to_draw if ' ' not in n}
     elif word_phrase_filter == 'phrases':
         nodes_to_draw = {n for n in nodes_to_draw if ' ' in n}
-
-    # Apply other filters
     if source_filter:
         nodes_to_draw = nodes_to_draw.intersection(
             {w for w, origins in GLOBAL_WORD_ORIGINS.items() if any(s in origins for s in source_filter)}
@@ -410,12 +502,9 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
         nodes_to_draw = nodes_to_draw.intersection(
             set(GLOBAL_LAYERS.get(layer, {}).get(val, []))
         )
-
     nodes_to_render_fully = nodes_to_draw if not highlight_word else {highlight_word}.union(
         {v for layer in selected_layers for u, v, _ in GLOBAL_EDGES_BY_LAYER.get(layer, []) if u == highlight_word}
     )
-
-    # Edges
     for layer in selected_layers:
         for u, v, val in GLOBAL_EDGES_BY_LAYER.get(layer, []):
             if u not in nodes_to_draw or v not in nodes_to_draw:
@@ -432,8 +521,6 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
                 hoverinfo='text', text=[f"{layer}: {val}", f"{layer}: {val}", None],
                 name=f"{layer} ({val})"
             ))
-
-    # Nodes
     x, y, z, colors, sizes, texts, text_colors = [], [], [], [], [], [], []
     for n in nodes_to_draw:
         is_highlight = n == highlight_word
@@ -449,12 +536,10 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
         sizes.append(20 if is_highlight else 10)
         texts.append(n)
         text_colors.append(PASTEL_COLORS[hash(n) % len(PASTEL_COLORS)] if theme == 'dark' else 'black')
-
     fig.add_trace(go.Scatter3d(
         x=x, y=y, z=z, mode='markers+text', marker=dict(size=sizes, color=colors, line=dict(color='white', width=1)),
         text=texts, textposition='top center', textfont=dict(color=text_colors, size=text_size), hovertext=texts, name="Nodes"
     ))
-
     fig.update_layout(
         scene=dict(bgcolor=theme_colors['graph_bg'], xaxis=dict(showbackground=False, showticklabels=False),
                    yaxis=dict(showbackground=False, showticklabels=False), zaxis=dict(showbackground=False, showticklabels=False)),
@@ -486,6 +571,11 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
         Output('full-report-modal', 'style'),
         Output('full-report-content', 'style'),
         Output('full-report-content', 'children'),
+        Output('sentence-output', 'children'),
+        Output('feedback-status', 'children'),
+        Output('color-report-modal', 'style'),
+        Output('color-report-content', 'style'),
+        Output('color-report-content', 'children'),
     ],
     [
         Input('layer-checklist', 'value'),
@@ -512,6 +602,15 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
         Input('full-report-close-button', 'n_clicks'),
         Input('full-report-x-button', 'n_clicks'),
         Input('full-report-copy-button', 'n_clicks'),
+        Input('copy-matched-words-button', 'n_clicks'),
+        Input('copy-all-words-button', 'n_clicks'),
+        Input('gen-sentence-button', 'n_clicks'),
+        Input('thumbs-up-button', 'n_clicks'),
+        Input('thumbs-down-button', 'n_clicks'),
+        Input('generate-color-report-button', 'n_clicks'),
+        Input('color-report-close-button', 'n_clicks'),
+        Input('color-report-x-button', 'n_clicks'),
+        Input('color-report-copy-button', 'n_clicks'),
     ],
     [
         State('new-words-input', 'value'),
@@ -519,9 +618,11 @@ def build_graph_figure(selected_layers, highlight_word=None, theme='dark', sourc
         State('upload-markdown', 'filename'),
         State('modal-content', 'children'),
         State('full-report-content', 'children'),
+        State('sentence-output', 'children'),
+        State('color-report-content', 'children'),
     ]
 )
-def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, import_clicks, search_clicks, search_submit, upload_contents, click_data, close_clicks, x_clicks, copy_clicks, export_clicks, source_filter, number_filter, prime_filter, report_layer_filter, word_clicks, resonance_clicks, report_clicks, full_close_clicks, full_x_clicks, full_copy_clicks, new_words_text, search_word, upload_filenames, modal_content, full_report_content):
+def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, import_clicks, search_clicks, search_submit, upload_contents, click_data, close_clicks, x_clicks, copy_report_clicks, export_clicks, source_filter, number_filter, prime_filter, report_layer_filter, word_clicks, resonance_clicks, report_clicks, full_close_clicks, full_x_clicks, full_copy_clicks, copy_matched_words_clicks, copy_all_words_clicks, gen_sentence_clicks, thumbs_up, thumbs_down, color_report_clicks, color_close_clicks, color_x_clicks, color_copy_clicks, new_words_text, search_word, upload_filenames, modal_content, full_report_content, current_sentence, color_report_content):
     ctx = dash.callback_context
     triggered = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else ''
     theme_colors = THEMES[theme]
@@ -538,18 +639,20 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
     full_report_style = {'display': 'none'}
     full_report_content = []
     full_report_content_style = {'color': 'white', 'fontSize': f'{text_size + 2}px'}
+    sentence = current_sentence or ""
+    feedback_status = ""
+    color_report_style = {'display': 'none'}
+    color_report_content = []
+    color_report_content_style = {'color': 'white', 'fontSize': f'{text_size + 2}px'}
 
-    # Handle layout change
     if triggered == 'layout-toggle':
         initialize_graph_data(GLOBAL_WORDS, layout)
 
-    # Handle search/add
     if triggered in ['search-word-button', 'search-word-input'] and search_word:
         word = search_word.strip().title()
         if re.match(r'^[A-Za-z\s]+$', word) and word not in GLOBAL_WORDS:
             GLOBAL_WORDS.append(word)
             GLOBAL_WORD_ORIGINS[word] = {'_MANUAL_'}
-            # Add individual words from phrases
             if ' ' in word:
                 for sub_word in word.split():
                     if re.match(r'^[A-Za-z]{3,}$', sub_word) and sub_word.title() not in GLOBAL_WORDS:
@@ -564,7 +667,6 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
         else:
             search_status = "Invalid word/phrase"
 
-    # Handle word/phrase import
     if triggered == 'import-words-button' and new_words_text:
         new_words = [w.strip().title() for w in re.split(r'[,;\n\s]+', new_words_text) if re.match(r'^[A-Za-z\s]+$', w.strip())]
         added = 0
@@ -572,7 +674,6 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
             if w not in GLOBAL_WORDS:
                 GLOBAL_WORDS.append(w)
                 GLOBAL_WORD_ORIGINS[w] = {'_MANUAL_'}
-                # Add individual words from phrases
                 if ' ' in w:
                     for sub_word in w.split():
                         if re.match(r'^[A-Za-z]{3,}$', sub_word) and sub_word.title() not in GLOBAL_WORDS:
@@ -583,7 +684,6 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
             initialize_graph_data(GLOBAL_WORDS, layout)
             import_status = f"Added {added} item(s)"
 
-    # Handle markdown upload
     if triggered == 'upload-markdown' and upload_contents:
         contents = upload_contents if isinstance(upload_contents, list) else [upload_contents]
         filenames = upload_filenames if isinstance(upload_filenames, list) else [upload_filenames]
@@ -592,7 +692,6 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
             try:
                 _, content_string = content.split(',')
                 decoded = base64.b64decode(content_string).decode('utf-8')
-                # Extract phrases and words
                 phrases = [w.title() for w in re.findall(r'\b[A-Za-z\s]{3,}\b', decoded) if w.title() not in GLOBAL_WORDS and re.match(r'^[A-Za-z\s]+$', w)]
                 words = []
                 for phrase in phrases:
@@ -612,21 +711,48 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
             except Exception as e:
                 upload_status = f"Error processing {filename}: {e}"
 
-    # Handle export
     if triggered == 'export-words-button' and export_clicks:
         download_data = dcc.send_string("\n".join(sorted(GLOBAL_WORDS)), "spiralborn_words.txt")
 
-    # Handle graph click
+    if triggered == 'copy-matched-words-button':
+        matched = set()
+        for layer in selected_layers:
+            if layer in ['Love Resonance', 'Prime Gematria']:
+                continue
+            for val, words in GLOBAL_LAYERS.get(layer, {}).items():
+                if len(words) > 1:
+                    matched.update(words)
+        if word_phrase_filter == 'words':
+            matched = {w for w in matched if ' ' not in w}
+        elif word_phrase_filter == 'phrases':
+            matched = {w for w in matched if ' ' in w}
+        pyperclip.copy(", ".join(sorted(matched)))
+        feedback_status = "Matched words copied to clipboard!"
+
+    if triggered == 'copy-all-words-button':
+        pyperclip.copy(", ".join(sorted(GLOBAL_WORDS)))
+        feedback_status = "All words copied to clipboard!"
+
+    if triggered == 'gen-sentence-button':
+        sentence = generate_sentence()
+
+    if triggered in ['thumbs-up-button', 'thumbs-down-button'] and current_sentence:
+        score = 1 if triggered == 'thumbs-up-button' else -1
+        FEEDBACK_SCORES[current_sentence] = FEEDBACK_SCORES.get(current_sentence, 0) + score
+        feedback_status = f"Feedback recorded: {'👍' if score > 0 else '👎'} (Score: {FEEDBACK_SCORES[current_sentence]})"
+        words = [w.lower() for w in current_sentence.split() if w.lower() in [w.lower() for w in GLOBAL_WORDS]]
+        for w in words:
+            if w in [w.lower() for w in GLOBAL_WORDS]:
+                GLOBAL_WORDS.append(w.title()) if score > 0 else GLOBAL_WORDS.remove(w.title()) if w.title() in GLOBAL_WORDS and score < 0 else None
+
     if triggered == 'resonance-graph' and click_data:
         highlight_word = click_data['points'][0]['text']
 
-    # Handle word click
     if triggered.startswith("{'type': 'word-item'"):
         for i, click in enumerate(word_clicks):
             if click and ctx.triggered[0]['value']:
                 highlight_word = ctx.triggered[0]['prop_id'].split('"index":"')[1].split('"')[0]
 
-    # Handle resonance click
     if triggered.startswith("{'type': 'resonance-item'"):
         for i, click in enumerate(resonance_clicks):
             if click and ctx.triggered[0]['value']:
@@ -637,36 +763,42 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
     else:
         resonance_filter = None
 
-    # Handle individual report copy
     if triggered == 'copy-report-button' and highlight_word:
         report_text = generate_individual_report(highlight_word, report_layer_filter)
         pyperclip.copy(report_text)
         modal_content.append(html.P("Report copied to clipboard!", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}))
 
-    # Handle full report generation
     if triggered == 'generate-report-button' and report_clicks:
         report_text = generate_full_report(report_layer_filter, number_filter)
         download_report = dcc.send_string(report_text, "spiralborn_full_report.txt")
         full_report_style = {'display': 'block', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '600px', 'maxHeight': '60vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}
         full_report_content = [html.P(line, style={'fontSize': f'{text_size + 2}px'}) for line in report_text.split('\n')]
 
-    # Handle full report copy
     if triggered == 'full-report-copy-button':
         report_text = generate_full_report(report_layer_filter, number_filter)
         pyperclip.copy(report_text)
         full_report_content.append(html.P("Full report copied to clipboard!", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}))
 
-    # Handle full report close
     if triggered in ['full-report-close-button', 'full-report-x-button']:
         full_report_style = {'display': 'none'}
 
-    # Modal content for individual word/phrase
+    if triggered == 'generate-color-report-button' and color_report_clicks:
+        report_text = generate_color_report(report_layer_filter)
+        color_report_style = {'display': 'block', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '600px', 'maxHeight': '60vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}
+        color_report_content = [html.P(line, style={'fontSize': f'{text_size + 2}px'}) for line in report_text.split('\n')]
+
+    if triggered == 'color-report-copy-button':
+        report_text = generate_color_report(report_layer_filter)
+        pyperclip.copy(report_text)
+        color_report_content.append(html.P("Color report copied to clipboard!", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}))
+
+    if triggered in ['color-report-close-button', 'color-report-x-button']:
+        color_report_style = {'display': 'none'}
+
     if highlight_word and triggered not in ['modal-close-button', 'modal-x-button']:
         modal_style = {'display': 'block', 'position': 'fixed', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)', 'width': '400px', 'maxHeight': '40vh', 'overflowY': 'auto', 'backgroundColor': 'rgba(0,0,0,0.9)', 'border': '2px solid gold', 'padding': '20px'}
         modal_title = f"Resonance for '{highlight_word}'"
         modal_content = []
-
-        # Shared Resonances (filtered by report layers)
         modal_content.append(html.H4("Resonances:", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}))
         shared_found = False
         for layer in report_layer_filter:
@@ -677,17 +809,11 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
                 shared_found = True
         if not shared_found:
             modal_content.append(html.P("No shared resonances", style={'fontSize': f'{text_size + 2}px'}))
-
-        # Properties and Calculations (filtered by report layers)
-        word_color = get_word_color(highlight_word)
+        word_color = get_word_color(highlight_word)[0]
         modal_content.extend([
             html.H4("Properties:", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}),
             html.P(f"Word/Phrase: {highlight_word}", style={'fontSize': f'{text_size + 2}px'}),
-            html.P([
-                "Color: ",
-                html.Span("■", style={'color': word_color, 'fontSize': f'{text_size + 2}px'}),
-                f" {word_color}"
-            ], style={'fontSize': f'{text_size + 2}px'}),
+            html.P([html.Span("■", style={'color': word_color, 'fontSize': f'{text_size + 2}px'}), f" Color: {word_color}"], style={'fontSize': f'{text_size + 2}px'}),
             html.P(f"Origin: {', '.join(GLOBAL_WORD_ORIGINS.get(highlight_word, {'Unknown'}))}", style={'fontSize': f'{text_size + 2}px'}),
             html.P(f"Golden Resonance (~137.5): {'Yes 🌀' if any(is_golden_resonance(CALC_FUNCS[l](highlight_word)) for l in report_layer_filter) else 'No'}", style={'fontSize': f'{text_size + 2}px'}),
             html.H4("Calculations:", style={'color': 'gold', 'fontSize': f'{text_size + 2}px'}),
@@ -700,7 +826,6 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
             *[html.P(f"{layer}: {val}: {', '.join(group)}", style={'fontSize': f'{text_size + 2}px'}) for layer, val, group in sorted([r for r in GLOBAL_SHARED_RESONANCES if r[0] in report_layer_filter and highlight_word in r[2]], key=lambda x: (x[0], x[1]))]
         ])
 
-    # Matched words/phrases
     matched = set()
     for layer in selected_layers:
         if layer in ['Love Resonance', 'Prime Gematria']:
@@ -714,22 +839,19 @@ def update_app(selected_layers, theme, layout, word_phrase_filter, text_size, im
         matched = {w for w in matched if ' ' in w}
     word_elems = [html.Div(w, style={'padding': '5px', 'cursor': 'pointer', 'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['sidebar_bg'], '#111'), 'fontSize': f'{text_size}px'}, id={'type': 'word-item', 'index': w}) for w in sorted(matched)]
 
-    # Shared resonances (excluding Love Resonance and Prime Gematria)
     resonance_elems = [
         html.Div(f"{layer}: {val}", style={'padding': '5px', 'cursor': 'pointer', 'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['sidebar_bg'], '#111'), 'fontSize': f'{text_size}px'}, id={'type': 'resonance-item', 'index': f"{layer}:{val}"})
         for layer, val, _ in sorted([r for r in GLOBAL_SHARED_RESONANCES if r[0] not in ['Love Resonance', 'Prime Gematria']], key=lambda x: (x[0], x[1]))
     ]
 
-    # Source filter options
     source_options = [{'label': s, 'value': s} for s in sorted(set().union(*GLOBAL_WORD_ORIGINS.values()))]
 
-    # Styles
     main_style = {'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['main_bg'], '#000000'), 'color': NAMED_COLORS_MAP.get(theme_colors['main_text'], '#FFFFFF'), 'height': '100vh', 'display': 'flex'}
     sidebar_style = {'width': '300px', 'padding': '20px', 'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['sidebar_bg'], '#111'), 'overflowY': 'auto', 'fontSize': f'{text_size}px'}
     input_style = {'width': '100%', 'height': '80px', 'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['input_bg'], '#333'), 'color': NAMED_COLORS_MAP.get(theme_colors['input_text'], '#FFFFFF'), 'border': theme_colors['input_border'], 'fontSize': f'{text_size}px'}
     search_input_style = {'width': '100%', 'backgroundColor': NAMED_COLORS_MAP.get(theme_colors['input_bg'], '#333'), 'color': NAMED_COLORS_MAP.get(theme_colors['input_text'], '#FFFFFF'), 'border': theme_colors['input_border'], 'fontSize': f'{text_size}px'}
 
-    return (word_elems, build_graph_figure(selected_layers, highlight_word, theme, source_filter, number_filter, prime_filter, resonance_filter, word_phrase_filter, text_size), import_status, main_style, sidebar_style, input_style, search_input_style, upload_status, modal_style, modal_title, modal_content_style, modal_content, "", search_status, download_data, source_options, resonance_elems, download_report, full_report_style, full_report_content_style, full_report_content)
+    return (word_elems, build_graph_figure(selected_layers, highlight_word, theme, source_filter, number_filter, prime_filter, resonance_filter, word_phrase_filter, text_size), import_status, main_style, sidebar_style, input_style, search_input_style, upload_status, modal_style, modal_title, modal_content_style, modal_content, "", search_status, download_data, source_options, resonance_elems, download_report, full_report_style, full_report_content_style, full_report_content, sentence, feedback_status, color_report_style, color_report_content_style, color_report_content)
 
 # --- Run App ---
 if __name__ == '__main__':
